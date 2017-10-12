@@ -1,114 +1,111 @@
 def simple_parse(message):
     parse_start = 0
-    buffarray = []
-    for i in range(len(message)):
-         if message[i] == " ":
-            buffarray.append(message[parse_start:i])
-            parse_start = i
-         elif i == len(message):
-             buffarray.append(message[parse_start:len(message)])
-    return buffarray
+    array_buffer = []
+    x = 0
+    for i in message:
+        if i == '&' or ' ':
+            array_buffer.append(message[parse_start:x])
+            parse_start = x + 1
+        elif x + 1 == len(message):
+            array_buffer.append(message[parse_start:x+1])
+        x += 1
+    return array_buffer
 
 
-def on_parse(message, dbarray, cref):
-    message_parsed = simple_parse(message)
-    if(message[0] == "add"):
-        dbarrayb = on_add(message_parsed[1:len(message_parsed)], dbarray, cref)
-        if dbarrayb != 0:
-            dbarray = dbarrayb
-    elif(message[0] == "update"):
-        dbarrayb = on_update(message_parsed[1:len(message_parsed)], dbarray, cref)
-        if dbarrayb != 0:
-            dbarray = dbarrayb
-    elif(message[0] == "delete"):
-        dbarrayb = on_delete(message_parsed[1:len(message_parsed)], dbarray, cref)
-        if dbarrayb != 0:
-            dbarray = dbarrayb
-    elif(message[0] == "read"):
-        on_read(message_parsed[1:len(message_parsed)], dbarray, cref)
-    elif(message[0] == "commit"):
-        dbarrayb = on_commit(message_parsed[1:len(message_parsed)], dbarray, cref)
-        if dbarrayb != 0:
-            dbarray = dbarrayb
-    return dbarray
+def on_parse(message, database_array, cref):
+    processed_database_array = []
+    message = message.decode("utf-8")
+    message_parsed = simple_parse(message[0:len(message)])
+    if message_parsed[0] == "add" or "ADD":
+        processed_database_array = on_add(message_parsed[0:len(message_parsed)], database_array, cref)
+    elif message_parsed[0] == "update" or "UPDATE":
+        processed_database_array = on_update(message_parsed[1:len(message_parsed)], database_array, cref)
+    elif message_parsed[0] == "delete" or "DELETE":
+        processed_database_array = on_delete(message_parsed[1:len(message_parsed)], database_array, cref)
+    elif message_parsed[0] == "read" or "READ":
+        on_read(message_parsed[1:len(message_parsed)], database_array, cref)
+    elif message_parsed[0] == "commit" or "COMMIT":
+        processed_database_array = on_commit(message_parsed[1:len(message_parsed)], database_array, cref)
+    return processed_database_array
 
 
-def on_add (message_parsed, dbarray, cref):
+def on_add (message_parsed, database_array, cref):
     try:
-        dbarray.append(message_parsed)
+        database_array.append(message_parsed[1:len(message_parsed)])
     except Warning:
-        cref.wfile.write("Something no right!".encode("utf-8"))
+        print("Something not right!")
     else:
-        return dbarray
-    return 0
+        return database_array
+    return simple_parse("Error something")
 
 
-def on_update(message, dbarray, cref):
+def on_update(message, database_array, cref):
     try:
-        dbarray.insert(dbarray[int(message[0])], message[1:len(message)])
+        database_array.insert(database_array[int(message[0])], message[1:len(message)])
     except TypeError:
-        cref.wfile.write("Wrong type!".encode("utf-8"))
+        print("Wrong type!")
     except IndexError:
-        cref.wfile.write("Wrong index!".encode("utf-8"))
+        print("Wrong index!")
     else:
-        return dbarray
-    return 0
+        return database_array
+    return simple_parse("Error type or index")
 
 
-def on_delete(message, dbarray, cref):
+def on_delete(message, database_array, cref):
     try:
-        dbarray[int(message[0])].clear()
+        database_array[int(message[0])].clear()
     except TypeError:
-        cref.wfile.write("Wrong type!".encode("utf-8"))
+        print("Wrong type!")
     except IndexError:
-        cref.wfile.write("Wrong index!".encode("utf-8"))
+        print("Wrong index!")
     else:
-        return dbarray
+        return database_array
+    return simple_parse("Error type or index")
 
-def on_read(message, dbarray, cref):
-    if(message[0] == "all"):
-        for i in range(dbarray):
-            for x in range(dbarray[i]):
-                cref.wfile.write(dbarray[i][x].encode("utf-8"))
+
+def on_read(message, database_array, cref):
+    if message[0] == "all" :
+        for i in range(database_array):
+            for x in range(database_array[i]):
+                print(database_array[i][x])
     else:
         try:
-            cref.wfile.write(dbarray[int(message[0])].encode("utf-8"))
+            print(database_array[0])
         except TypeError:
-            cref.wfile.write("Wrong type!".encode("utf-8"))
+            print("Input error!")
         except IndexError:
-            cref.wfile.write("Wrong index!".encode("utf-8"))
+            print("Input error!")
+        return simple_parse("Error input")
 
 
-def on_commit(message, dbarray, cref):
-    if(message[0] == "to"):
+def on_commit(message, database_array, cref):
+    if message[0] == "to" :
         try:
             file = open(message[1])
         except IOError:
             file = open(message[1], 'w+')
         finally:
-            for i in range(dbarray):
-                for x in range(dbarray[i]):
-                    file.write(dbarray[i][x] + "\n")
+            for i in range(database_array):
+                for x in range(database_array[i]):
+                    file.write(database_array[i][x] + "\n")
                     file.close()
-    elif(message[0] == "from"):
+
+    elif message[0] == "from" :
         try:
             file = open(message[1])
         except IOError:
-            cref.wfile.write("Wrong filename!".encode("utf-8"))
+            print("Input error!")
         else:
-            dbarray.clear()
+            database_array.clear()
             i, j = 0, 0
             try:
                 for line in file:
                     if line == "\n":
                         i += 1
                     else:
-                        dbarray[i] = simple_parse(line)
+                        database_array[i] = simple_parse(line)
             except EOFError:
-                cref.wfile.write("File was read!".encode("utf-8"))
+                print("Read successful!")
             file.close()
-            return dbarray
-
-
-def on_sort(message, dbarray, cref):
-    print(1)
+            return database_array
+        return simple_parse("Error input")
